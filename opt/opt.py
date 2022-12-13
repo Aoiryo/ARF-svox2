@@ -1,5 +1,6 @@
 # Copyright 2021 Alex Yu
 
+# if no checkpoints, first run this
 # First, install svox2
 # Then, python opt.py <path_to>/nerf_synthetic/<scene> -t ckpt/<some_name>
 # or use launching script:   sh launch.sh <EXP_NAME> <GPU> <DATA_DIR>
@@ -365,11 +366,13 @@ last_upsamp_step = args.init_iters
 if args.enable_random:
     warn("Randomness is enabled for training (normal for LLFF & scenes with background)")
 
+# start
 epoch_id = -1
 while True:
     dset.shuffle_rays()
     epoch_id += 1
     epoch_size = dset.rays.origins.size(0)
+    # 每一个epoch处理一批（batch）光线，这样算出每个epoch要处理多少束光线
     batches_per_epoch = (epoch_size-1)//args.batch_size+1
     # Test
     def eval_step():
@@ -473,6 +476,7 @@ while True:
 
     def train_step():
         print('Train step')
+        # tqdm可视化训练进度
         pbar = tqdm(enumerate(range(0, epoch_size, args.batch_size)), total=batches_per_epoch)
         stats = {"mse" : 0.0, "psnr" : 0.0, "invsqr_mse" : 0.0}
         for iter_id, batch_begin in pbar:
@@ -511,6 +515,7 @@ while True:
             stats['psnr'] += psnr
             stats['invsqr_mse'] += 1.0 / mse_num ** 2
 
+            # 存储
             if (iter_id + 1) % args.print_every == 0:
                 # Print averaged stats
                 pbar.set_description(f'epoch {epoch_id} psnr={psnr:.2f}')
@@ -601,7 +606,7 @@ while True:
                 elif grid.basis_type == svox2.BASIS_TYPE_MLP:
                     optim_basis_mlp.step()
                     optim_basis_mlp.zero_grad()
-
+    # 先开始训练
     train_step()
     gc.collect()
     gstep_id_base += batches_per_epoch
